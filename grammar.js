@@ -28,7 +28,10 @@ module.exports = grammar({
 
   externals: $ => [
     $._automatic_semicolon,
-    $.heredoc
+    $.heredoc,
+    $.text,
+    $.end_tag,
+    $.start_tag,
   ],
 
   word: $ => $.name,
@@ -67,33 +70,31 @@ module.exports = grammar({
 
   extras: $ => [
     $.comment,
-    /[\s\uFEFF\u2060\u200B\u00A0]/,
-    $.text_interpolation
+    /[\s\uFEFF\u2060\u200B\u00A0]/
   ],
 
   rules: {
-    program: $ => seq(
-      optional($.text),
-      optional(seq(
-        /<\?([pP][hH][pP]|=)/,
-        repeat($._statement))),
-      optional(
-        seq(
-        '?>',
-        optional($.text)
-      ))
+    program: $ => repeat(
+      choice(
+        $.script_section,
+        $.text,
+      )
     ),
 
-    text_interpolation: $ => token(seq(
-      '?>',
-      repeat(choice(
-        /[^<]/,
-        /<[^?]/
-      )),
-      /<\?([pP][hH][pP]|=)/
-    )),
+    script_section: $ => seq(
+      // Somehow regexp does not work here even though <?php is at the begining of the file
+      // choice(/<\?([pP][hH][pP])?/, '<?='),
+      $.start_tag,
+      repeat($._statement),
 
-    text: $ => repeat1(choice('<', /[^\s<]+[^<]*/)),
+      // At the end of file this is treated as empty string ('')
+      // so no need to be optional
+      $.end_tag
+    ),
+
+    // start_tag: $ => choice(
+    //   '<?php', '<?Php', '<?pHp', '<?phP', '<?PHp', '<?pHP', '<?PhP', '<?PHP', '<?=', '<?'
+    // ),
 
     _statement: $ => choice(
       ';',
@@ -990,7 +991,7 @@ module.exports = grammar({
     ),
 
     comment: $ => token(choice(
-      seq(choice('//', '#'), repeat(/[^?\n]|\?[^>\n]/), optional('?')),
+      seq(choice('//', '#'), repeat(/[^?\n]|\?[^>\n]/)),
       seq(
         '/*',
         /[^*]*\*+([^/*][^*]*\*+)*/,

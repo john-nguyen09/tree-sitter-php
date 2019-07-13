@@ -11,6 +11,9 @@ using std::string;
 enum TokenType {
   AUTOMATIC_SEMICOLON,
   HEREDOC,
+  TEXT,
+  END_TAG,
+  START_TAG,
 };
 
 struct Heredoc {
@@ -21,10 +24,14 @@ struct Heredoc {
 };
 
 struct Scanner {
+  bool is_in_script_section;
   bool has_leading_whitespace;
   vector<Heredoc> open_heredocs;
 
-  Scanner() : has_leading_whitespace(false) {}
+  Scanner() {
+    is_in_script_section = false;
+    has_leading_whitespace = false;
+  }
 
   void reset() {
     open_heredocs.clear();
@@ -38,6 +45,7 @@ struct Scanner {
   unsigned serialize(char *buffer) {
     unsigned i = 0;
 
+    buffer[i++] = is_in_script_section;
     buffer[i++] = open_heredocs.size();
     for (
       vector<Heredoc>::iterator iter = open_heredocs.begin(),
@@ -62,6 +70,7 @@ struct Scanner {
 
     if (length == 0) return;
 
+    is_in_script_section = buffer[i++];
     uint8_t open_heredoc_count = buffer[i++];
     for (unsigned j = 0; j < open_heredoc_count; j++) {
       Heredoc heredoc;
@@ -180,12 +189,162 @@ struct Scanner {
     }
   }
 
+  bool scan_text_content(TSLexer *lexer) {
+    enum {
+      START,
+      AFTER_LESS_THAN,
+      AFTER_QUESTION,
+      AFTER_P,
+      AFTER_PH,
+      AFTER_PHP,
+      DONE
+    } state = START;
+
+    bool did_advance = false;
+    bool has_content = false;
+
+    while (state != DONE) {
+      if (lexer->lookahead == 0) {
+        if (did_advance) has_content = true;
+        lexer->mark_end(lexer);
+        state = DONE;
+      }
+
+      switch (state) {
+        case START:
+          if (lexer->lookahead == '<') {
+            if (did_advance) has_content = true;
+            lexer->mark_end(lexer);
+            state = AFTER_LESS_THAN;
+          }
+          break;
+        case AFTER_LESS_THAN:
+          if (lexer->lookahead == '?') {
+            state = AFTER_QUESTION;
+          } else {
+            state = START;
+          }
+          break;
+        case AFTER_QUESTION:
+          // Short tag <?
+          if (iswspace(lexer->lookahead)) {
+            state = DONE;
+          } else if (lexer->lookahead == '=') {
+            advance(lexer);
+            if (iswspace(lexer->lookahead)) {
+              state = DONE;
+            } else {
+              state = START;
+            }
+          } else if (lexer->lookahead == 'p' || lexer->lookahead == 'P') {
+            state = AFTER_P;
+          } else {
+            state = START;
+          }
+          break;
+        case AFTER_P:
+          if (lexer->lookahead == 'h' || lexer->lookahead == 'H') {
+            state = AFTER_PH;
+          } else {
+            state = START;
+          }
+          break;
+        case AFTER_PH:
+          if (lexer->lookahead == 'p' || lexer->lookahead == 'P') {
+            state = AFTER_PHP;
+          } else {
+            state = START;
+          }
+          break;
+        case AFTER_PHP:
+          if (iswspace(lexer->lookahead)) {
+            state = DONE;
+          } else {
+            state = START;
+          }
+          break;
+      }
+
+      advance(lexer);
+      did_advance = true;
+    }
+
+    return has_content;
+  }
+
+  bool scan_start_tag(TSLexer *lexer) {
+    if (lexer->lookahead != '<') return false;
+    advance(lexer);
+    if (lexer->lookahead != '?') return false;
+    advance(lexer);
+    if (lexer->lookahead == '=') {
+      advance(lexer);
+      if (iswspace(lexer->lookahead)) {
+        lexer->mark_end(lexer);
+        return true;
+      }
+
+      return false;
+    }
+    if (iswspace(lexer->lookahead)) {
+      lexer->mark_end(lexer);
+      return true;
+    }
+    if (lexer->lookahead != 'p' && lexer->lookahead != 'P') return false;
+    advance(lexer);
+    if (lexer->lookahead != 'h' && lexer->lookahead != 'H') return false;
+    advance(lexer);
+    if (lexer->lookahead != 'p' && lexer->lookahead != 'P') return false;
+    advance(lexer);
+    if (!iswspace(lexer->lookahead)) return false;
+    lexer->mark_end(lexer);
+
+    return true;
+  }
+
+  bool scan_end_tag(TSLexer *lexer) {
+    if (lexer->lookahead != '?') return false;
+    advance(lexer);
+    if (lexer->lookahead != '>') return false;
+    advance(lexer);
+    lexer->mark_end(lexer);
+
+    return true;
+  }
+
   bool scan(TSLexer *lexer, const bool *valid_symbols) {
     has_leading_whitespace = false;
 
     lexer->mark_end(lexer);
 
+    if (valid_symbols[TEXT]) {
+      if (valid_symbols[START_TAG] && scan_start_tag(lexer)) {
+        lexer->result_symbol = START_TAG;
+        is_in_script_section = true;
+        
+        return true;
+      }
+      if (is_in_script_section) {
+        return false;
+      }
+
+      lexer->result_symbol = TEXT;
+      return scan_text_content(lexer);
+    }
+
+    if (valid_symbols[START_TAG]) {
+      lexer->result_symbol = START_TAG;
+      is_in_script_section = true;
+      return scan_start_tag(lexer);
+    }
+
     if (!scan_whitespace(lexer)) return false;
+
+    if (valid_symbols[END_TAG]) {
+      lexer->result_symbol = END_TAG;
+      is_in_script_section = false;
+      return scan_end_tag(lexer);
+    }
 
     if (valid_symbols[HEREDOC]) {
       if (lexer->lookahead == '<') {
