@@ -52,13 +52,11 @@ module.exports = grammar({
   ],
   inline: $ => [
     $._statement,
-    $._member_name,
     $._variable,
     $._callable_variable,
     $._callable_expression,
     $._selection_statement,
     $._iteration_statement,
-    $._foreach_value,
     $._literal,
     $._intrinsic,
     $._class_type_designator,
@@ -429,8 +427,12 @@ module.exports = grammar({
     ),
 
     catch_clause: $ => seq(
-      'catch', '(', $.qualified_name, $.variable_name, ')', $.compound_statement
+      'catch', '(', choice($.qualified_name, $.catch_name_list), $.variable_name, ')', $.compound_statement
     ),
+
+    catch_name_list: $ => prec.left(PREC.OR, seq(
+      repeat1(seq($.qualified_name, '|')), $.qualified_name
+    )),
 
     finally_clause: $ => seq(
       'finally', $.compound_statement
@@ -521,7 +523,7 @@ module.exports = grammar({
    ),
 
     foreach_statement: $ => seq(
-      'foreach', '(', $._expression, 'as', choice(alias($.foreach_pair, $.pair), $._foreach_value), ')',
+      'foreach', '(', alias($._expression, $.foreach_collection), 'as', choice(alias($.foreach_pair, $.pair), $.foreach_value), ')',
       choice(
         $._semicolon,
         $._statement,
@@ -529,9 +531,9 @@ module.exports = grammar({
       )
     ),
 
-    foreach_pair: $ => seq($._expression, '=>', $._foreach_value),
+    foreach_pair: $ => seq($._expression, '=>', $.foreach_value),
 
-    _foreach_value: $ => choice(
+    foreach_value: $ => choice(
       seq(optional('&'), $._expression),
       $.list_literal
     ),
@@ -704,7 +706,7 @@ module.exports = grammar({
       $._simple_variable,
       seq($.new_variable, '[', optional($._expression), ']'),
       seq($.new_variable, '{', $._expression, '}'),
-      seq($.new_variable, '->', $._member_name),
+      seq($.new_variable, '->', $.member_name),
       seq($.qualified_name, '::', $._simple_variable),
       seq($.relative_scope, '::', $._simple_variable),
       seq($.new_variable, '::', $._simple_variable)
@@ -786,7 +788,7 @@ module.exports = grammar({
     ),
 
     member_access_expression: $ => prec(PREC.MEMBER, seq(
-      $.dereferencable_expression, '->', $._member_name
+      $.dereferencable_expression, '->', $.member_name
     )),
 
     scoped_property_access_expression: $ => prec(PREC.MEMBER, seq(
@@ -824,7 +826,7 @@ module.exports = grammar({
     ),
 
     scoped_call_expression: $ => prec(PREC.CALL, seq(
-      $._scope_resolution_qualifier, '::', $._member_name, $.arguments
+      $._scope_resolution_qualifier, '::', $.member_name, $.arguments
     )),
 
     _scope_resolution_qualifier: $ => choice(
@@ -848,13 +850,13 @@ module.exports = grammar({
     member_call_expression: $ => prec(PREC.CALL, seq(
       $.dereferencable_expression,
       '->',
-      $._member_name,
+      $.member_name,
       $.arguments
     )),
 
     variadic_unpacking: $ => seq('...', $._expression),
 
-    _member_name: $ => choice(
+    member_name: $ => choice(
       alias($._reserved_identifier, $.name),
       $.name,
       $._simple_variable,
@@ -974,7 +976,12 @@ module.exports = grammar({
       $._expression
     ),
 
-    name: $ => /[_a-zA-Z\u0080-\u00ff][_a-zA-Z\u0080-\u00ff\d]*/,
+    name: $ => {
+      const non_digit = /[_a-zA-Z\u0080-\u00FF]/
+      const digit = /[0-9]/
+
+      return token(seq(non_digit, repeat(choice(non_digit, digit))))
+    },
 
     _reserved_identifier: $ => choice(
       'self',
