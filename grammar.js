@@ -170,9 +170,7 @@ module.exports = grammar({
 
     namespace_name_as_prefix: $ => choice(
       '\\',
-      seq(optional('\\'), $.namespace_name, '\\'),
-      seq('namespace', '\\'),
-      seq('namespace', optional('\\'), $.namespace_name, '\\')
+      seq(optional('\\'), $.namespace_name, '\\')
     ),
 
     namespace_name: $ => seq($.name, repeat(seq('\\', $.name))),
