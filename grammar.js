@@ -397,6 +397,8 @@ module.exports = grammar({
 
     _type_name: $ => alias($.qualified_name, $.type_name),
 
+    type_name_list: $ => seq($._type_name, repeat1(seq('|', $._type_name))),
+
     optional_type: $ => seq(
       '?',
       choice(
@@ -478,7 +480,7 @@ module.exports = grammar({
     catch_clause: $ => seq(
       'catch',
       '(',
-      field('type', $._type_name),
+      field('type', choice($._type_name, $.type_name_list)),
       field('name', $.variable_name),
       ')',
       field('body', $.compound_statement)

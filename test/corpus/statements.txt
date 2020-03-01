@@ -286,6 +286,11 @@ try {
   print "\n";
 }
 
+try {
+} catch (MyException | OtherException $exception) {
+} finally {
+}
+
 ---
 
 (program
@@ -317,7 +322,15 @@ try {
             object: (variable_name (name))
             name: (name)
             arguments: (arguments)))))
-        (expression_statement (print_intrinsic (string)))))))
+        (expression_statement (print_intrinsic (string))))))
+  (try_statement
+    body: (compound_statement)
+    (catch_clause
+      type: (type_name_list (type_name (name)) (type_name (name)))
+      name: (variable_name (name))
+      body: (compound_statement))
+    (finally_clause
+      body: (compound_statement))))
 
 ==============================
 Foreach statements

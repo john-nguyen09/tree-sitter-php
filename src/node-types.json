@@ -870,6 +870,10 @@
           {
             "type": "type_name",
             "named": true
+          },
+          {
+            "type": "type_name_list",
+            "named": true
           }
         ]
       }
@@ -3095,6 +3099,21 @@
     }
   },
   {
+    "type": "type_name_list",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": true,
+      "types": [
+        {
+          "type": "type_name",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
     "type": "unary_op_expression",
     "named": true,
     "fields": {},
@@ -3635,11 +3654,11 @@
   },
   {
     "type": "boolean",
-    "named": false
+    "named": true
   },
   {
     "type": "boolean",
-    "named": true
+    "named": false
   },
   {
     "type": "break",
@@ -3743,11 +3762,11 @@
   },
   {
     "type": "float",
-    "named": false
+    "named": true
   },
   {
     "type": "float",
-    "named": true
+    "named": false
   },
   {
     "type": "for",
@@ -3807,11 +3826,11 @@
   },
   {
     "type": "integer",
-    "named": false
+    "named": true
   },
   {
     "type": "integer",
-    "named": true
+    "named": false
   },
   {
     "type": "interface",
