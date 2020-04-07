@@ -348,6 +348,10 @@ foreach($a as $b):
   echo $b;
 endforeach;
 
+foreach ($a AS $b) {
+  echo $b;
+}
+
 ---
 
 (program
@@ -367,6 +371,11 @@ endforeach;
     (variable_name (name))
     body: (colon_block
       (echo_statement (variable_name (name)))
+      (echo_statement (variable_name (name)))))
+  (foreach_statement
+    (variable_name (name))
+    (variable_name (name))
+    body: (compound_statement
       (echo_statement (variable_name (name))))))
 
 ================================
