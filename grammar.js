@@ -589,7 +589,7 @@ module.exports = grammar({
       'foreach',
       '(',
       $._expression,
-      'as',
+      /[Aa][Ss]/,
       choice(
         alias($.foreach_pair, $.pair),
         $._foreach_value

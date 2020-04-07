@@ -2555,8 +2555,8 @@
           "name": "_expression"
         },
         {
-          "type": "STRING",
-          "value": "as"
+          "type": "PATTERN",
+          "value": "[Aa][Ss]"
         },
         {
           "type": "CHOICE",
